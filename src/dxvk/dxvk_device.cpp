@@ -22,7 +22,8 @@ namespace dxvk {
     m_properties        (adapter->deviceProperties()),
     m_perfHints         (getPerfHints()),
     m_objects           (this),
-    m_submissionQueue   (this, queueCallback) {
+    m_submissionQueue   (this, queueCallback),
+    m_dynamicPipelineCache(std::make_unique<DxvkDynamicPipelineCache>(this)) {
 
   }
   

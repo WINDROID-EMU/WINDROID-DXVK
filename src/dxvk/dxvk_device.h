@@ -15,6 +15,7 @@
 #include "dxvk_objects.h"
 #include "dxvk_options.h"
 #include "dxvk_pipemanager.h"
+#include "dxvk_pipeline_cache.h"
 #include "dxvk_presenter.h"
 #include "dxvk_queue.h"
 #include "dxvk_recycler.h"
@@ -517,6 +518,14 @@ namespace dxvk {
     }
 
     /**
+     * \brief Gets dynamic pipeline cache
+     * \returns Dynamic pipeline cache
+     */
+    DxvkDynamicPipelineCache* getDynamicPipelineCache() {
+      return m_dynamicPipelineCache.get();
+    }
+
+    /**
      * \brief Retreves current frame ID
      * \returns Current frame ID
      */
@@ -686,6 +695,8 @@ namespace dxvk {
     DxvkRecycler<DxvkCommandList, 16> m_recycledCommandLists;
     
     DxvkSubmissionQueue         m_submissionQueue;
+    
+    std::unique_ptr<DxvkDynamicPipelineCache> m_dynamicPipelineCache;
 
     DxvkDevicePerfHints getPerfHints();
     

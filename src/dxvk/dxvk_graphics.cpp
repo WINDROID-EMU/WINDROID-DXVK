@@ -1062,6 +1062,20 @@ namespace dxvk {
 
   DxvkGraphicsPipelineHandle DxvkGraphicsPipeline::getPipelineHandle(
     const DxvkGraphicsPipelineStateInfo& state) {
+    // Try to use dynamic pipeline cache for dynamic rendering scenarios
+    if (m_device->getDynamicPipelineCache() && isDynamicRenderingPipeline(state)) {
+      DxvkDynamicPipelineStateKey dynamicState = convertToDynamicState(state);
+      VkPipeline dynamicPipeline = m_device->getDynamicPipelineCache()->getPipeline(dynamicState, m_shaders);
+      
+      if (dynamicPipeline != VK_NULL_HANDLE) {
+        DxvkGraphicsPipelineHandle result;
+        result.handle = dynamicPipeline;
+        result.type = DxvkGraphicsPipelineType::FastPipeline;
+        result.attachments = computeAttachmentMask(state);
+        return result;
+      }
+    }
+    
     DxvkGraphicsPipelineInstance* instance = this->findInstance(state);
 
     if (unlikely(!instance)) {
@@ -1772,6 +1786,91 @@ namespace dxvk {
     }
 
     return name.str();
+  }
+
+  bool DxvkGraphicsPipeline::isDynamicRenderingPipeline(
+    const DxvkGraphicsPipelineStateInfo& state) const {
+    // Check if this pipeline is suitable for dynamic rendering cache
+    // This includes common scenarios where dynamic rendering is beneficial
+    
+    // Must have vertex and fragment shaders
+    if (!m_shaders.vs || !m_shaders.fs)
+      return false;
+    
+    // Check for common dynamic rendering scenarios
+    bool hasColorAttachment = state.rt.getColorFormat(0) != VK_FORMAT_UNDEFINED;
+    bool hasDepthAttachment = state.rt.getDepthStencilFormat() != VK_FORMAT_UNDEFINED;
+    
+    // Must have at least one attachment
+    if (!hasColorAttachment && !hasDepthAttachment)
+      return false;
+    
+    // Check for common pipeline states that work well with dynamic rendering
+    bool isStandardTopology = state.ia.primitiveTopology() == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST ||
+                             state.ia.primitiveTopology() == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+    
+    bool isStandardPolygonMode = state.rs.polygonMode() == VK_POLYGON_MODE_FILL;
+    
+    bool isStandardCullMode = state.rs.cullMode() == VK_CULL_MODE_NONE_BIT ||
+                             state.rs.cullMode() == VK_CULL_MODE_BACK_BIT;
+    
+    // Only use dynamic cache for standard rendering scenarios
+    return isStandardTopology && isStandardPolygonMode && isStandardCullMode;
+  }
+
+  DxvkDynamicPipelineStateKey DxvkGraphicsPipeline::convertToDynamicState(
+    const DxvkGraphicsPipelineStateInfo& state) const {
+    DxvkDynamicPipelineStateKey dynamicState;
+    
+    // Convert shader hashes
+    dynamicState.vertexShaderHash = m_shaders.vs ? m_shaders.vs->getHash() : 0;
+    dynamicState.fragmentShaderHash = m_shaders.fs ? m_shaders.fs->getHash() : 0;
+    dynamicState.geometryShaderHash = m_shaders.gs ? m_shaders.gs->getHash() : 0;
+    dynamicState.tessellationShaderHash = (m_shaders.tcs && m_shaders.tes) ? 
+      (m_shaders.tcs->getHash() ^ m_shaders.tes->getHash()) : 0;
+    
+    // Convert render state
+    dynamicState.colorFormat = state.rt.getColorFormat(0);
+    dynamicState.depthFormat = state.rt.getDepthStencilFormat();
+    dynamicState.sampleCount = state.ms.sampleCount() ? state.ms.sampleCount() : VK_SAMPLE_COUNT_1_BIT;
+    
+    // Convert pipeline state
+    dynamicState.topology = state.ia.primitiveTopology();
+    dynamicState.polygonMode = state.rs.polygonMode();
+    dynamicState.cullMode = state.rs.cullMode();
+    dynamicState.frontFace = state.rs.frontFace();
+    
+    // Convert blend state (use first color attachment)
+    if (state.rt.getColorFormat(0) != VK_FORMAT_UNDEFINED) {
+      const auto& blend = state.omBlend[0];
+      dynamicState.enableBlending = blend.blendEnable();
+      if (dynamicState.enableBlending) {
+        dynamicState.srcColorBlendFactor = blend.srcColorBlendFactor();
+        dynamicState.dstColorBlendFactor = blend.dstColorBlendFactor();
+        dynamicState.colorBlendOp = blend.colorBlendOp();
+      }
+    }
+    
+    // Convert depth/stencil state
+    if (state.rt.getDepthStencilFormat() != VK_FORMAT_UNDEFINED) {
+      dynamicState.enableDepthTest = state.ds.enableDepthTest();
+      dynamicState.enableDepthWrite = state.ds.enableDepthWrite();
+      dynamicState.depthCompareOp = state.ds.depthCompareOp();
+    }
+    
+    // Convert dynamic state mask
+    dynamicState.dynamicStateMask = 0;
+    if (state.dy.viewportCount() > 0) dynamicState.dynamicStateMask |= 1 << 0;
+    if (state.dy.scissorCount() > 0) dynamicState.dynamicStateMask |= 1 << 1;
+    if (state.dy.lineWidth() > 0) dynamicState.dynamicStateMask |= 1 << 2;
+    if (state.dy.depthBias() > 0) dynamicState.dynamicStateMask |= 1 << 3;
+    if (state.dy.blendConstants() > 0) dynamicState.dynamicStateMask |= 1 << 4;
+    if (state.dy.depthBounds() > 0) dynamicState.dynamicStateMask |= 1 << 5;
+    if (state.dy.stencilCompareMask() > 0) dynamicState.dynamicStateMask |= 1 << 6;
+    if (state.dy.stencilWriteMask() > 0) dynamicState.dynamicStateMask |= 1 << 7;
+    if (state.dy.stencilReference() > 0) dynamicState.dynamicStateMask |= 1 << 8;
+    
+    return dynamicState;
   }
 
 }

@@ -7,6 +7,7 @@
 #include "dxvk_bind_mask.h"
 #include "dxvk_constant_state.h"
 #include "dxvk_graphics_state.h"
+#include "dxvk_pipeline_cache.h"
 #include "dxvk_pipelayout.h"
 #include "dxvk_renderpass.h"
 #include "dxvk_shader.h"
@@ -679,6 +680,13 @@ namespace dxvk {
       const DxvkGraphicsPipelineStateInfo& state) const;
 
     std::string createDebugName() const;
+
+    // Dynamic pipeline cache helpers
+    bool isDynamicRenderingPipeline(
+      const DxvkGraphicsPipelineStateInfo& state) const;
+
+    DxvkDynamicPipelineStateKey convertToDynamicState(
+      const DxvkGraphicsPipelineStateInfo& state) const;
 
   };
   
