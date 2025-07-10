@@ -17,6 +17,57 @@ namespace dxvk {
 
   using ProfileList = std::vector<std::pair<const char*, Config>>;
 
+  // Detecção automática de GPUs Adreno 6xx
+  static bool IsAdreno6xx(const std::string& deviceName) {
+    return deviceName.find("Adreno 6") != std::string::npos ||
+           deviceName.find("Adreno 610") != std::string::npos ||
+           deviceName.find("Adreno 620") != std::string::npos ||
+           deviceName.find("Adreno 630") != std::string::npos ||
+           deviceName.find("Adreno 640") != std::string::npos ||
+           deviceName.find("Adreno 650") != std::string::npos ||
+           deviceName.find("Adreno 660") != std::string::npos ||
+           deviceName.find("Adreno 680") != std::string::npos ||
+           deviceName.find("Adreno 690") != std::string::npos;
+  }
+
+  // Aplicar otimizações automáticas para Adreno 6xx
+  static void ApplyAdrenoOptimizations(Config& config, const std::string& deviceName) {
+    if (!IsAdreno6xx(deviceName))
+      return;
+
+    Logger::info("DXVK: Auto-applying Adreno 6xx optimizations");
+
+    // Otimizações de memória
+    config.setOption("dxgi.maxDeviceMemory", "3072");
+    config.setOption("dxgi.maxSharedMemory", "4096");
+    
+    // Cache de recursos dinâmicos
+    config.setOption("d3d11.cachedDynamicResources", "avirc");
+    
+    // Otimizações de pipeline
+    config.setOption("d3d11.relaxedBarriers", "True");
+    config.setOption("d3d11.relaxedGraphicsBarriers", "True");
+    config.setOption("d3d11.invariantPosition", "True");
+    config.setOption("d3d11.floatControls", "True");
+    
+    // Limitar tessellation
+    config.setOption("d3d11.maxTessFactor", "8");
+    
+    // Otimizações de latência
+    config.setOption("dxgi.maxFrameLatency", "1");
+    
+    // Desabilitar features pesadas
+    config.setOption("d3d11.forceSampleRateShading", "False");
+    config.setOption("d3d11.exposeDriverCommandLists", "False");
+    config.setOption("d3d11.reproducibleCommandStream", "False");
+    
+    // Otimizações de pipeline library
+    config.setOption("dxvk.enableGraphicsPipelineLibrary", "True");
+    config.setOption("dxvk.trackPipelineLifetime", "True");
+    config.setOption("dxvk.tilerMode", "True");
+    
+    Logger::info("DXVK: Adreno 6xx optimizations applied");
+  }
 
   const static ProfileList g_profiles = {
     /**********************************************/
@@ -1643,6 +1694,19 @@ namespace dxvk {
 
       for(auto l : str::split(confLine, ";"))
         parseUserConfigLine(config, ctx, std::string(l.data(), l.size()));
+    }
+
+    // Aplicar otimizações de Adreno 6xx se habilitadas
+    bool forceAdreno = config.getOption<bool>("dxvk.forceAdrenoOptimizations", false);
+    bool disableAdreno = config.getOption<bool>("dxvk.disableAdrenoOptimizations", false);
+    
+    if (!disableAdreno) {
+      // Tentar detectar GPU Adreno 6xx através de variáveis de ambiente ou configuração
+      std::string deviceName = env::getEnvVar("DXVK_DEVICE_NAME");
+      
+      if (forceAdreno || !deviceName.empty()) {
+        ApplyAdrenoOptimizations(config, deviceName);
+      }
     }
 
     return config;

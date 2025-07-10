@@ -49,6 +49,9 @@ namespace dxvk {
     /// Enable support for dummy composition swapchains
     bool enableDummyCompositionSwapchain;
 
+    /// Enable UE4 workarounds for HDR
+    bool enableUe4Workarounds;
+
     /// Limit frame rate
     int32_t maxFrameRate;
 
@@ -58,6 +61,12 @@ namespace dxvk {
 
     /// Forced refresh rate, disable other modes
     uint32_t forceRefreshRate;
+
+    /// Tear-free configuration
+    Tristate tearFree;
+
+    // Aplicar otimizações específicas de memória para Adreno 6xx
+    void applyAdrenoMemoryOptimizations();
   };
   
 }

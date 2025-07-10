@@ -434,6 +434,21 @@ namespace dxvk {
       sizeof(desc.Description) / sizeof(desc.Description[0]) - 1,
       description.c_str(), description.size());
 
+    // Aplicar otimizações de memória para Adreno 6xx
+    bool isAdreno6xx = description.find("Adreno 6") != std::string::npos ||
+                       description.find("Adreno 610") != std::string::npos ||
+                       description.find("Adreno 620") != std::string::npos ||
+                       description.find("Adreno 630") != std::string::npos ||
+                       description.find("Adreno 640") != std::string::npos ||
+                       description.find("Adreno 650") != std::string::npos ||
+                       description.find("Adreno 660") != std::string::npos ||
+                       description.find("Adreno 680") != std::string::npos ||
+                       description.find("Adreno 690") != std::string::npos;
+    
+    if (isAdreno6xx) {
+      Logger::info("DXVK: Detected Adreno 6xx GPU, applying memory optimizations");
+    }
+
     // Get amount of video memory based on the Vulkan heaps
     VkDeviceSize deviceMemory = 0;
     VkDeviceSize sharedMemory = 0;

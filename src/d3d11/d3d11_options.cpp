@@ -12,6 +12,19 @@ namespace dxvk {
 #endif
   }
 
+  // Detecção automática de GPUs Adreno 6xx
+  static bool IsAdreno6xx(const std::string& deviceName) {
+    return deviceName.find("Adreno 6") != std::string::npos ||
+           deviceName.find("Adreno 610") != std::string::npos ||
+           deviceName.find("Adreno 620") != std::string::npos ||
+           deviceName.find("Adreno 630") != std::string::npos ||
+           deviceName.find("Adreno 640") != std::string::npos ||
+           deviceName.find("Adreno 650") != std::string::npos ||
+           deviceName.find("Adreno 660") != std::string::npos ||
+           deviceName.find("Adreno 680") != std::string::npos ||
+           deviceName.find("Adreno 690") != std::string::npos;
+  }
+
   D3D11Options::D3D11Options(const Config& config) {
     this->forceVolatileTgsmAccess = config.getOption<bool>("d3d11.forceVolatileTgsmAccess", false);
     this->forceComputeUavBarriers = config.getOption<bool>("d3d11.forceComputeUavBarriers", false);
@@ -60,6 +73,50 @@ namespace dxvk {
 
     // Shader dump path is only available via an environment variable
     this->shaderDumpPath = env::getEnvVar("DXVK_SHADER_DUMP_PATH");
+    
+    // Aplicar otimizações Adreno automaticamente se detectado
+    applyAdrenoOptimizations();
+  }
+
+  // Aplicar otimizações específicas para Adreno 6xx
+  void D3D11Options::applyAdrenoOptimizations() {
+    // Detectar GPU Adreno através de variável de ambiente ou configuração
+    std::string deviceName = env::getEnvVar("DXVK_GPU_NAME");
+    if (deviceName.empty()) {
+      // Se não especificado, aplicar otimizações por padrão para mobile
+      deviceName = "Adreno 6xx";
+    }
+    
+    if (!IsAdreno6xx(deviceName))
+      return;
+
+    Logger::info("DXVK: Applying Adreno 6xx optimizations");
+
+    // Otimizações de memória e cache
+    this->cachedDynamicResources = ~0u;  // Cache todos os recursos dinâmicos
+    
+    // Otimizações de pipeline
+    this->relaxedBarriers = true;
+    this->relaxedGraphicsBarriers = true;
+    this->invariantPosition = true;
+    this->floatControls = true;
+    
+    // Limitar tessellation para mobile
+    if (this->maxTessFactor == 0) {
+      this->maxTessFactor = 8;
+    }
+    
+    // Otimizações de latência
+    if (this->maxFrameLatency == 0) {
+      this->maxFrameLatency = 1;
+    }
+    
+    // Desabilitar features pesadas em mobile
+    this->forceSampleRateShading = false;
+    this->exposeDriverCommandLists = false;
+    this->reproducibleCommandStream = false;
+    
+    Logger::info("DXVK: Adreno 6xx optimizations applied");
   }
   
 }

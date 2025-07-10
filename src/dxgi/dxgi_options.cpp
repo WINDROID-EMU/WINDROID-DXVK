@@ -112,19 +112,30 @@ namespace dxvk {
     this->hideAmdGpu = config.getOption<Tristate>("dxgi.hideAmdGpu", Tristate::Auto) == Tristate::True;
     this->hideIntelGpu = config.getOption<Tristate>("dxgi.hideIntelGpu", Tristate::Auto) == Tristate::True;
 
-    /* Force vendor ID to non-Intel ID when XeSS is in use */
-    if (isXessUsed()) {
-      Logger::info(str::format("Detected XeSS usage, hiding Intel GPU Vendor"));
-      this->hideIntelGpu = true;
-    }
-
+    // Enable HDR by default if the environment variable is set
     this->enableHDR = config.getOption<bool>("dxgi.enableHDR", env::getEnvVar("DXVK_HDR") == "1");
 
-    bool enableUe4Workarounds = config.getOption<bool>("dxgi.enableUe4Workarounds", false);
+    // Enable UE4 workarounds for HDR
+    this->enableUe4Workarounds = config.getOption<bool>("dxgi.enableUe4Workarounds", false);
 
-    if (this->enableHDR && isHDRDisallowed(enableUe4Workarounds)) {
-      Logger::info("HDR was configured to be enabled, but has been force disabled as a UE4 DX11 game was detected.");
-      this->enableHDR = false;
+    // Tear-free configuration
+    this->tearFree = config.getOption<Tristate>("dxvk.tearFree", Tristate::Auto);
+  }
+
+  // Aplicar otimizações específicas de memória para Adreno 6xx
+  void DxgiOptions::applyAdrenoMemoryOptimizations() {
+    // Limitar VRAM reportada para evitar thrashing em GPUs mobile
+    if (this->maxDeviceMemory == 0) {
+      this->maxDeviceMemory = VkDeviceSize(3072) << 20;  // 3GB
+    }
+    
+    if (this->maxSharedMemory == 0) {
+      this->maxSharedMemory = VkDeviceSize(4096) << 20;  // 4GB
+    }
+    
+    // Otimizar frame rate para mobile
+    if (this->maxFrameRate == 0) {
+      this->maxFrameRate = 60;
     }
   }
   

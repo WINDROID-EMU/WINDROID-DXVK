@@ -3,10 +3,8 @@ util_src = files([
   'util_string.cpp',
   'util_fps_limiter.cpp',
   'util_flush.cpp',
-  'util_gdi.cpp',
   'util_luid.cpp',
   'util_matrix.cpp',
-  'util_shared_res.cpp',
   'util_sleep.cpp',
 
   'thread.cpp',
@@ -25,6 +23,11 @@ util_src = files([
 
   'sync/sync_recursive.cpp',
 ])
+
+# Adicionar arquivos específicos do Windows apenas para Windows
+if target_machine.system() == 'windows'
+  util_src += files(['util_gdi.cpp', 'util_shared_res.cpp'])
+endif
 
 util_lib = static_library('util', util_src,
   include_directories : [ dxvk_include_path ],

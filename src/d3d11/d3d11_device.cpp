@@ -49,6 +49,9 @@ namespace dxvk {
     m_dxbcOptions       (m_dxvkDevice, m_d3d11Options),
     m_maxFeatureLevel   (GetMaxFeatureLevel(m_dxvkDevice->instance(), m_dxvkDevice->adapter())),
     m_deviceFeatures    (m_dxvkDevice->instance(), m_dxvkDevice->adapter(), m_d3d11Options, m_featureLevel) {
+    
+    // As otimizações Adreno são aplicadas durante a inicialização das opções
+    
     m_initializer = new D3D11Initializer(this);
     m_context     = new D3D11ImmediateContext(this, m_dxvkDevice);
     m_d3d10Device = new D3D10Device(this, m_context.ptr());
@@ -1343,7 +1346,7 @@ namespace dxvk {
     *ppDeferredContext = ref(new D3D11DeferredContext(this, m_dxvkDevice, ContextFlags));
     return S_OK;
   }
-  
+
 
   HRESULT STDMETHODCALLTYPE D3D11Device::CreateDeferredContext1(
           UINT                        ContextFlags, 
